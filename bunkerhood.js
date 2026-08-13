@@ -138,16 +138,11 @@ async function submitOne(acc, maxRetries = 3) {
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
-
       const res = await fetch(ENDPOINT, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
-        signal: controller.signal,
       });
-      clearTimeout(timeout);
       const data = await res.json();
       console.log(`[${acc.x_username}] status ${res.status} (percobaan ${attempt}):`, data);
 
