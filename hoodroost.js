@@ -164,17 +164,42 @@ async function approveAuthCode({ authToken, ct0, authCode }) {
 // Step 3: hit callback situs -> dapat session cookie situs
 async function siteCallback({ code, state }) {
   const params = new URLSearchParams({ code, state });
-  const res = await fetch(`${REDIRECT_URI}?${params.toString()}`, {
-    method: 'GET',
-    redirect: 'manual',
-  });
+  let url = `${REDIRECT_URI}?${params.toString()}`;
+  let cookieJar = {};
+  let status = null;
 
-  const cookies = typeof res.headers.getSetCookie === 'function'
-    ? res.headers.getSetCookie()
-    : (res.headers.get('set-cookie') || '').split(/,(?=[^;]+?=)/);
+  for (let hop = 0; hop < 5; hop++) {
+    const cookieHeader = Object.entries(cookieJar).map(([k, v]) => `${k}=${v}`).join('; ');
 
-  const setCookie = cookies.join('; ');
-  return { status: res.status, setCookie };
+    const res = await fetch(url, {
+      method: 'GET',
+      redirect: 'manual',
+      headers: cookieHeader ? { Cookie: cookieHeader } : {},
+    });
+
+    status = res.status;
+
+    const cookies = typeof res.headers.getSetCookie === 'function'
+      ? res.headers.getSetCookie()
+      : (res.headers.get('set-cookie') || '').split(/,(?=[^;]+?=)/);
+
+    for (const c of cookies) {
+      const [pair] = c.split(';');
+      const eqIdx = pair.indexOf('=');
+      if (eqIdx === -1) continue;
+      const name = pair.slice(0, eqIdx).trim();
+      const value = pair.slice(eqIdx + 1).trim();
+      if (value) cookieJar[name] = value; // skip cookie yg di-clear (value kosong)
+    }
+
+    const location = res.headers.get('location');
+    if (!location || (res.status !== 307 && res.status !== 302 && res.status !== 301)) break;
+
+    url = new URL(location, url).toString();
+  }
+
+  const setCookie = Object.entries(cookieJar).map(([k, v]) => `${k}=${v}`).join('; ');
+  return { status, setCookie };
 }
 
 async function connectX(account) {
@@ -246,7 +271,7 @@ async function main() {
   if (accounts.length === 0) { console.error('Tidak ada akun.'); return; }
 
   const indices = await selectAccounts(accounts.length);
-  const selected = indices.map((i) => accounts[i]);
+  const selected = indices.map((idx) => ({ ...accounts[idx], originalNum: idx + 1 }));
   const resume = loadResume();
 
   for (let i = 0; i < selected.length; i++) {
@@ -254,17 +279,17 @@ async function main() {
     const key = acc.authToken.slice(0, 10);
 
     if (resume[key]?.ok) {
-      console.log(`[SKIP] akun ${i + 1} sudah berhasil`);
+      console.log(`[SKIP] akun ${acc.originalNum} sudah berhasil`);
       continue;
     }
 
-    process.stdout.write(`[PROSES] akun ${i + 1} - connect X ... `);
+    process.stdout.write(`[PROSES] akun ${acc.originalNum} - connect X ... `);
 
     try {
       const { status, siteCookie } = await connectX(acc);
       console.log(`connected (status ${status})`);
 
-      process.stdout.write(`[PROSES] akun ${i + 1} - apply task ... `);
+      process.stdout.write(`[PROSES] akun ${acc.originalNum} - apply task ... `);
       const result = await applyTask(acc, siteCookie);
       console.log('OK');
       resume[key] = { ok: true, result };
