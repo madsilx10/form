@@ -2,7 +2,7 @@ const fs = require('fs');
 const readline = require('readline');
 
 const API_URL = 'https://dinovagame.com/api/apply';
-const AKUN_FILE = 'akun.txt'; // satu handle per baris
+const AKUN_FILE = 'usn1.txt'; // satu handle per baris
 const WALLET_FILE = 'wallet.txt'; // satu wallet per baris
 const RESUME_FILE = 'resume_wl.json';
 const MIN_DELAY = 3000;
@@ -76,19 +76,40 @@ async function applyWL(handle, wallet) {
 async function askAccountSelection(accounts) {
   console.log('\nDaftar akun:');
   accounts.forEach((a, i) => console.log(`${i + 1}. ${a.handle} -> ${a.wallet}`));
-  console.log('0. Semua akun\n');
+  console.log('0. Semua akun');
+  console.log('Range: contoh "3-7" (dari 3 sampai 7), atau "5-" (dari 5 sampai akhir)\n');
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   const answer = await new Promise((res) => {
-    rl.question('Pilih akun (nomor, pisah koma, atau 0 untuk semua): ', res);
+    rl.question('Pilih akun (nomor, koma, range, atau 0 untuk semua): ', res);
   });
   rl.close();
 
   const trimmed = answer.trim();
   if (trimmed === '0' || trimmed === '') return accounts;
 
-  const indices = trimmed.split(',').map((s) => parseInt(s.trim(), 10) - 1);
-  return indices.filter((i) => i >= 0 && i < accounts.length).map((i) => accounts[i]);
+  const indices = new Set();
+  for (const part of trimmed.split(',').map((s) => s.trim())) {
+    if (!part) continue;
+
+    if (part.includes('-')) {
+      const [startStr, endStr] = part.split('-').map((s) => s.trim());
+      const start = parseInt(startStr, 10);
+      const end = endStr === '' ? accounts.length : parseInt(endStr, 10);
+
+      if (Number.isNaN(start) || Number.isNaN(end)) continue;
+
+      for (let i = start; i <= end; i++) indices.add(i - 1);
+    } else {
+      const idx = parseInt(part, 10) - 1;
+      if (!Number.isNaN(idx)) indices.add(idx);
+    }
+  }
+
+  return [...indices]
+    .filter((i) => i >= 0 && i < accounts.length)
+    .sort((a, b) => a - b)
+    .map((i) => accounts[i]);
 }
 
 async function main() {
