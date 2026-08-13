@@ -7,6 +7,15 @@
  */
 
 const fs = require("fs");
+const readline = require("readline");
+
+function ask(question) {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((resolve) => rl.question(question, (answer) => {
+    rl.close();
+    resolve(answer);
+  }));
+}
 
 const USERNAME_FILE = "usn.txt";
 const WALLET_FILE = "wallet.txt";
@@ -122,6 +131,7 @@ async function submitOne(acc) {
   };
 
   try {
+    console.log(`[${acc.x_username}] payload:`, JSON.stringify(payload));
     const res = await fetch(ENDPOINT, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -137,7 +147,30 @@ async function submitOne(acc) {
 }
 
 async function main() {
-  const arg = process.argv[2];
+  let arg = process.argv[2];
+
+  if (!arg) {
+    console.log(`Total akun terbaca: ${ACCOUNTS.length}\n`);
+    console.log("Pilih mode:");
+    console.log("  1) 1 akun");
+    console.log("  2) semua akun");
+    console.log("  3) dari nomor X sampai akhir");
+    const choice = (await ask("Masukkan pilihan (1/2/3): ")).trim();
+
+    if (choice === "1") {
+      const num = (await ask(`Nomor akun (1-${ACCOUNTS.length}): `)).trim();
+      arg = num;
+    } else if (choice === "2") {
+      arg = "all";
+    } else if (choice === "3") {
+      const num = (await ask(`Mulai dari nomor (1-${ACCOUNTS.length}): `)).trim();
+      arg = `${num}-end`;
+    } else {
+      console.error("Pilihan tidak valid.");
+      process.exit(1);
+    }
+  }
+
   let selected;
   try {
     selected = selectAccounts(ACCOUNTS, arg);
@@ -146,7 +179,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`Memproses ${selected.length} dari ${ACCOUNTS.length} akun (mode: ${arg || "all"})\n`);
+  console.log(`\nMemproses ${selected.length} dari ${ACCOUNTS.length} akun (mode: ${arg})\n`);
 
   const results = [];
   for (const acc of selected) {
