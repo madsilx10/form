@@ -148,8 +148,17 @@ async function approveAuthCode({ authToken, ct0, authCode }) {
   });
 
   const data = await safeJson(res, 'approveAuthCode');
-  if (!data.code) throw new Error(`gagal approve: ${JSON.stringify(data)}`);
-  return data.code;
+
+  let code = data.code;
+  let stateFromRedirect = null;
+  if (!code && data.redirect_uri) {
+    const redirectUrl = new URL(data.redirect_uri);
+    code = redirectUrl.searchParams.get('code');
+    stateFromRedirect = redirectUrl.searchParams.get('state');
+  }
+
+  if (!code) throw new Error(`gagal approve: ${JSON.stringify(data)}`);
+  return { code, state: stateFromRedirect };
 }
 
 // Step 3: hit callback situs -> dapat session cookie situs
@@ -169,8 +178,8 @@ async function connectX(account) {
   const state = base64url(crypto.randomBytes(16));
 
   const authCode = await getAuthCode({ ...account, challenge, state });
-  const code = await approveAuthCode({ ...account, authCode });
-  const { status, setCookie } = await siteCallback({ code, state });
+  const { code, state: returnedState } = await approveAuthCode({ ...account, authCode });
+  const { status, setCookie } = await siteCallback({ code, state: returnedState || state });
 
   return { status, siteCookie: setCookie };
 }
