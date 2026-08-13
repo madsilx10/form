@@ -161,45 +161,32 @@ async function approveAuthCode({ authToken, ct0, authCode }) {
   return { code, state: stateFromRedirect };
 }
 
-// Step 3: hit callback situs -> dapat session cookie situs
+// Step 3: hit callback situs biar dia catat X connect (session-nya situs sendiri yg urus)
 async function siteCallback({ code, state }) {
   const params = new URLSearchParams({ code, state });
-  let url = `${REDIRECT_URI}?${params.toString()}`;
-  let cookieJar = {};
-  let status = null;
+  const res = await fetch(`${REDIRECT_URI}?${params.toString()}`, {
+    method: 'GET',
+    redirect: 'manual',
+  });
+  return { status: res.status };
+}
 
-  for (let hop = 0; hop < 5; hop++) {
-    const cookieHeader = Object.entries(cookieJar).map(([k, v]) => `${k}=${v}`).join('; ');
+async function getXHandle({ authToken, ct0 }) {
+  const res = await fetch('https://api.twitter.com/1.1/account/verify_credentials.json', {
+    method: 'GET',
+    headers: {
+      ...COMMON_HEADERS,
+      Authorization: `Bearer ${BEARER}`,
+      Cookie: baseCookie(authToken, ct0),
+      'X-Csrf-Token': ct0,
+      'X-Twitter-Active-User': 'yes',
+      'X-Twitter-Auth-Type': 'OAuth2Session',
+    },
+  });
 
-    const res = await fetch(url, {
-      method: 'GET',
-      redirect: 'manual',
-      headers: cookieHeader ? { Cookie: cookieHeader } : {},
-    });
-
-    status = res.status;
-
-    const cookies = typeof res.headers.getSetCookie === 'function'
-      ? res.headers.getSetCookie()
-      : (res.headers.get('set-cookie') || '').split(/,(?=[^;]+?=)/);
-
-    for (const c of cookies) {
-      const [pair] = c.split(';');
-      const eqIdx = pair.indexOf('=');
-      if (eqIdx === -1) continue;
-      const name = pair.slice(0, eqIdx).trim();
-      const value = pair.slice(eqIdx + 1).trim();
-      if (value) cookieJar[name] = value; // skip cookie yg di-clear (value kosong)
-    }
-
-    const location = res.headers.get('location');
-    if (!location || (res.status !== 307 && res.status !== 302 && res.status !== 301)) break;
-
-    url = new URL(location, url).toString();
-  }
-
-  const setCookie = Object.entries(cookieJar).map(([k, v]) => `${k}=${v}`).join('; ');
-  return { status, setCookie };
+  const data = await safeJson(res, 'getXHandle');
+  if (!data.screen_name) throw new Error(`gagal ambil handle: ${JSON.stringify(data)}`);
+  return data.screen_name;
 }
 
 async function connectX(account) {
@@ -208,20 +195,14 @@ async function connectX(account) {
 
   const authCode = await getAuthCode({ ...account, challenge, state });
   const { code, state: returnedState } = await approveAuthCode({ ...account, authCode });
-  const { status, setCookie } = await siteCallback({ code, state: returnedState || state });
+  const callbackResult = await siteCallback({ code, state: returnedState || state });
 
-  return { status, siteCookie: setCookie };
+  return callbackResult;
 }
 
-function extractCookieValue(setCookieHeader, name) {
-  if (!setCookieHeader) return null;
-  const match = setCookieHeader.match(new RegExp(`${name}=([^;]+)`));
-  return match ? decodeURIComponent(match[1]) : null;
-}
-
-async function applyTask(account, siteCookieHeader) {
-  const handle = extractCookieValue(siteCookieHeader, 'x_handle');
-  if (!handle) throw new Error(`x_handle tidak ditemukan di cookie: ${siteCookieHeader}`);
+// TODO: sesuaikan endpoint & payload task setelah connect X berhasil
+async function applyTask(account) {
+  const handle = await getXHandle(account);
 
   const res = await fetch('https://h00dr00st.xyz/api/allowlist', {
     method: 'POST',
@@ -286,11 +267,11 @@ async function main() {
     process.stdout.write(`[PROSES] akun ${acc.originalNum} - connect X ... `);
 
     try {
-      const { status, siteCookie } = await connectX(acc);
-      console.log(`connected (status ${status})`);
+      const callbackResult = await connectX(acc);
+      console.log(`connected (status ${callbackResult.status})`);
 
       process.stdout.write(`[PROSES] akun ${acc.originalNum} - apply task ... `);
-      const result = await applyTask(acc, siteCookie);
+      const result = await applyTask(acc);
       console.log('OK');
       resume[key] = { ok: true, result };
     } catch (err) {
