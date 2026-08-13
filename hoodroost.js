@@ -80,6 +80,21 @@ function baseCookie(authToken, ct0) {
   return `auth_token=${authToken}; ct0=${ct0}`;
 }
 
+const COMMON_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+  Accept: 'application/json, text/plain, */*',
+  'Accept-Language': 'en-US,en;q=0.9',
+};
+
+async function safeJson(res, label) {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error(`${label} - respons bukan JSON (status ${res.status}): ${text.slice(0, 150)}`);
+  }
+}
+
 // Step 1: GET authorize -> dapat auth_code + info app
 async function getAuthCode({ authToken, ct0, challenge, state }) {
   const params = new URLSearchParams({
@@ -92,11 +107,14 @@ async function getAuthCode({ authToken, ct0, challenge, state }) {
     state,
   });
 
-  const res = await fetch(`https://x.com/i/api/2/oauth2/authorize?${params.toString()}`, {
+  const url = `https://x.com/i/api/2/oauth2/authorize?${params.toString()}`;
+  const res = await fetch(url, {
     method: 'GET',
     headers: {
+      ...COMMON_HEADERS,
       Authorization: `Bearer ${BEARER}`,
       Cookie: baseCookie(authToken, ct0),
+      Referer: url,
       'X-Csrf-Token': ct0,
       'X-Twitter-Active-User': 'yes',
       'X-Twitter-Auth-Type': 'OAuth2Session',
@@ -104,7 +122,7 @@ async function getAuthCode({ authToken, ct0, challenge, state }) {
     },
   });
 
-  const data = await res.json();
+  const data = await safeJson(res, 'getAuthCode');
   if (!data.auth_code) throw new Error(`gagal ambil auth_code: ${JSON.stringify(data)}`);
   return data.auth_code;
 }
@@ -116,9 +134,11 @@ async function approveAuthCode({ authToken, ct0, authCode }) {
   const res = await fetch('https://x.com/i/api/2/oauth2/authorize', {
     method: 'POST',
     headers: {
+      ...COMMON_HEADERS,
       Authorization: `Bearer ${BEARER}`,
       Cookie: baseCookie(authToken, ct0),
       'Content-Type': 'application/x-www-form-urlencoded',
+      Referer: 'https://x.com/i/oauth2/authorize',
       'X-Csrf-Token': ct0,
       'X-Twitter-Active-User': 'yes',
       'X-Twitter-Auth-Type': 'OAuth2Session',
@@ -127,7 +147,7 @@ async function approveAuthCode({ authToken, ct0, authCode }) {
     body: body.toString(),
   });
 
-  const data = await res.json();
+  const data = await safeJson(res, 'approveAuthCode');
   if (!data.code) throw new Error(`gagal approve: ${JSON.stringify(data)}`);
   return data.code;
 }
