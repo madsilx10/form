@@ -17,7 +17,7 @@ function ask(question) {
   }));
 }
 
-const USERNAME_FILE = "usn.txt";
+const USERNAME_FILE = "usn1.txt";
 const WALLET_FILE = "wallet.txt";
 
 // Class dipilih random per akun dari daftar ini.
@@ -41,6 +41,10 @@ function readLines(path) {
     .filter((l) => l.length > 0);
 }
 
+function stripAt(username) {
+  return username.startsWith("@") ? username.slice(1) : username;
+}
+
 function buildAccounts() {
   const usernames = readLines(USERNAME_FILE);
   const wallets = readLines(WALLET_FILE);
@@ -56,7 +60,7 @@ function buildAccounts() {
   const accounts = [];
   for (let i = 0; i < count; i++) {
     accounts.push({
-      x_username: usernames[i],
+      x_username: stripAt(usernames[i]),
       wallet_address: wallets[i],
       ...pickRandomClass(),
       comment: DEFAULT_COMMENT,
