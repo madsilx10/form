@@ -7,6 +7,7 @@ const REDIRECT_URI = 'https://h00dr00st.xyz/api/auth/x/callback';
 const SCOPE = 'users.read tweet.read';
 const BEARER = 'AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs=1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA';
 
+const USN_FILE = 'usn1.txt'; // satu handle per baris
 const AKUN_FILE = 'akun.txt'; // format per blok (pisah baris kosong): authtoken lalu ct0
 const WALLET_FILE = 'wallet.txt';
 const RESUME_FILE = 'resume_h00dr00st.json';
@@ -47,15 +48,16 @@ function loadAccountBlocks() {
 }
 
 function loadAccounts() {
+  const handles = readLines(USN_FILE);
   const accBlocks = loadAccountBlocks();
   const wallets = readLines(WALLET_FILE);
 
-  if (accBlocks.length !== wallets.length) {
-    console.error(`Jumlah akun di ${AKUN_FILE} (${accBlocks.length}) dan ${WALLET_FILE} (${wallets.length}) tidak sama.`);
+  if (handles.length !== accBlocks.length || handles.length !== wallets.length) {
+    console.error(`Jumlah akun di ${USN_FILE} (${handles.length}), ${AKUN_FILE} (${accBlocks.length}), ${WALLET_FILE} (${wallets.length}) tidak sama.`);
     process.exit(1);
   }
 
-  return accBlocks.map((acc, i) => ({ ...acc, wallet: wallets[i] }));
+  return accBlocks.map((acc, i) => ({ ...acc, handle: handles[i], wallet: wallets[i] }));
 }
 
 function loadResume() {
@@ -171,24 +173,6 @@ async function siteCallback({ code, state }) {
   return { status: res.status };
 }
 
-async function getXHandle({ authToken, ct0 }) {
-  const res = await fetch('https://x.com/i/api/1.1/account/settings.json', {
-    method: 'GET',
-    headers: {
-      ...COMMON_HEADERS,
-      Authorization: `Bearer ${BEARER}`,
-      Cookie: baseCookie(authToken, ct0),
-      'X-Csrf-Token': ct0,
-      'X-Twitter-Active-User': 'yes',
-      'X-Twitter-Auth-Type': 'OAuth2Session',
-    },
-  });
-
-  const data = await safeJson(res, 'getXHandle');
-  if (!data.screen_name) throw new Error(`gagal ambil handle: ${JSON.stringify(data)}`);
-  return data.screen_name;
-}
-
 async function connectX(account) {
   const { verifier, challenge } = generatePKCE();
   const state = base64url(crypto.randomBytes(16));
@@ -200,9 +184,8 @@ async function connectX(account) {
   return callbackResult;
 }
 
-// TODO: sesuaikan endpoint & payload task setelah connect X berhasil
 async function applyTask(account) {
-  const handle = await getXHandle(account);
+  const handle = account.handle;
 
   const res = await fetch('https://h00dr00st.xyz/api/allowlist', {
     method: 'POST',
