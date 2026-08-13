@@ -115,10 +115,10 @@ async function submitOne(acc) {
     article_verified: true,
     hold_confirmed: true,
     hold_position: acc.hold_position ?? true,
-    follow_attempts: 1,
-    like_attempts: 1,
-    comment_attempts: 1,
-    article_attempts: 1,
+    follow_attempts: 2,
+    like_attempts: 2,
+    comment_attempts: 2,
+    article_attempts: 2,
   };
 
   try {
