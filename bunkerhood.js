@@ -113,7 +113,7 @@ function selectAccounts(accounts, arg) {
   );
 }
 
-async function submitOne(acc) {
+async function submitOne(acc, maxRetries = 3) {
   const payload = {
     submitted_at: new Date().toISOString(),
     x_username: acc.x_username,
@@ -134,20 +134,41 @@ async function submitOne(acc) {
     article_attempts: 2,
   };
 
-  try {
-    console.log(`[${acc.x_username}] payload:`, JSON.stringify(payload));
-    const res = await fetch(ENDPOINT, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-    console.log(`[${acc.x_username}] status ${res.status}:`, data);
-    return { username: acc.x_username, status: res.status, data };
-  } catch (err) {
-    console.error(`[${acc.x_username}] error:`, err.message);
-    return { username: acc.x_username, error: err.message };
+  console.log(`[${acc.x_username}] payload:`, JSON.stringify(payload));
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
+      const res = await fetch(ENDPOINT, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      const data = await res.json();
+      console.log(`[${acc.x_username}] status ${res.status} (percobaan ${attempt}):`, data);
+
+      if (res.status === 200 || data.ok === true) {
+        return { username: acc.x_username, status: res.status, data };
+      }
+
+      // status bukan 200 -> kemungkinan invalid, gak usah diulang kalau errornya validasi
+      if (data.error === "INVALID_SUBMISSION") {
+        return { username: acc.x_username, status: res.status, data };
+      }
+    } catch (err) {
+      console.warn(`[${acc.x_username}] percobaan ${attempt} gagal:`, err.stack || err.message || err);
+    }
+
+    if (attempt < maxRetries) {
+      await new Promise((res) => setTimeout(res, 2000 * attempt)); // backoff
+    }
   }
+
+  return { username: acc.x_username, error: "Gagal setelah beberapa percobaan" };
 }
 
 async function main() {
@@ -196,4 +217,7 @@ async function main() {
   console.table(results);
 }
 
-main();
+main().catch((err) => {
+  console.error("Fatal error:", err.stack || err);
+  process.exit(1);
+});
