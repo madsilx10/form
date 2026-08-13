@@ -172,7 +172,7 @@ async function siteCallback({ code, state }) {
 }
 
 async function getXHandle({ authToken, ct0 }) {
-  const res = await fetch('https://api.twitter.com/1.1/account/verify_credentials.json', {
+  const res = await fetch('https://x.com/i/api/1.1/account/verify_credentials.json', {
     method: 'GET',
     headers: {
       ...COMMON_HEADERS,
