@@ -11,11 +11,19 @@ const USN_FILE = 'usn1.txt'; // satu handle per baris
 const AKUN_FILE = 'akun.txt'; // format per blok (pisah baris kosong): authtoken lalu ct0
 const WALLET_FILE = 'wallet.txt';
 const RESUME_FILE = 'resume_h00dr00st.json';
-const MIN_DELAY = 3000;
-const MAX_DELAY = 8000;
+const MIN_DELAY = 15000;
+const MAX_DELAY = 30000;
 
 function sleep(ms) {
   return new Promise((res) => setTimeout(res, ms));
+}
+async function cooldown(ms) {
+  const totalSec = Math.ceil(ms / 1000);
+  for (let s = totalSec; s > 0; s--) {
+    process.stdout.write(`\r  cooldown ${s}s...   `);
+    await sleep(1000);
+  }
+  process.stdout.write('\r                      \r');
 }
 function randomDelay() {
   return Math.floor(Math.random() * (MAX_DELAY - MIN_DELAY + 1)) + MIN_DELAY;
@@ -263,7 +271,7 @@ async function main() {
     }
 
     saveResume(resume);
-    if (i !== selected.length - 1) await sleep(randomDelay());
+    if (i !== selected.length - 1) await cooldown(randomDelay());
   }
 
   console.log('\nSelesai. Hasil tersimpan di ' + RESUME_FILE);
