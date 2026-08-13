@@ -184,10 +184,31 @@ async function connectX(account) {
   return { status, siteCookie: setCookie };
 }
 
-// TODO: sesuaikan endpoint & payload task setelah connect X berhasil
-async function applyTask(account, siteSession) {
-  // contoh placeholder, ganti sesuai endpoint apply situs
-  throw new Error('applyTask belum diisi - kasih tau endpoint & payload task-nya');
+function extractCookieValue(setCookieHeader, name) {
+  if (!setCookieHeader) return null;
+  const match = setCookieHeader.match(new RegExp(`${name}=([^;]+)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+async function applyTask(account, siteCookieHeader) {
+  const handle = extractCookieValue(siteCookieHeader, 'x_handle');
+  if (!handle) throw new Error(`x_handle tidak ditemukan di cookie: ${siteCookieHeader}`);
+
+  const res = await fetch('https://h00dr00st.xyz/api/allowlist', {
+    method: 'POST',
+    headers: {
+      ...COMMON_HEADERS,
+      'Content-Type': 'application/json',
+      Origin: 'https://h00dr00st.xyz',
+      Referer: 'https://h00dr00st.xyz/',
+      Cookie: `x_handle=${handle}`,
+    },
+    body: JSON.stringify({ handle, wallet: account.wallet }),
+  });
+
+  const data = await safeJson(res, 'applyTask');
+  if (!data.ok) throw new Error(`gagal apply: ${JSON.stringify(data)}`);
+  return data;
 }
 
 function ask(question) {
