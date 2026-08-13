@@ -169,7 +169,11 @@ async function siteCallback({ code, state }) {
     redirect: 'manual',
   });
 
-  const setCookie = res.headers.get('set-cookie') || '';
+  const cookies = typeof res.headers.getSetCookie === 'function'
+    ? res.headers.getSetCookie()
+    : (res.headers.get('set-cookie') || '').split(/,(?=[^;]+?=)/);
+
+  const setCookie = cookies.join('; ');
   return { status: res.status, setCookie };
 }
 
