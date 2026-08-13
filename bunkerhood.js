@@ -61,6 +61,45 @@ const ACCOUNTS = buildAccounts();
 
 const ENDPOINT = "https://thebunkerhood.com/api/submit";
 
+/**
+ * Cara pilih akun yang mau diproses, lewat argumen CLI:
+ *   node bunkerhood.js all          -> semua akun
+ *   node bunkerhood.js 3            -> cuma akun baris ke-3
+ *   node bunkerhood.js 5-end        -> dari baris ke-5 sampai akhir
+ *   node bunkerhood.js              -> default: all
+ *
+ * Nomor baris dihitung mulai dari 1 (baris pertama di usn.txt/wallet.txt).
+ */
+function selectAccounts(accounts, arg) {
+  const mode = (arg || "all").trim().toLowerCase();
+
+  if (mode === "all") return accounts;
+
+  // single index: "3"
+  if (/^\d+$/.test(mode)) {
+    const idx = parseInt(mode, 10) - 1;
+    if (idx < 0 || idx >= accounts.length) {
+      throw new Error(`Index ${mode} di luar jangkauan (total ${accounts.length} akun).`);
+    }
+    return [accounts[idx]];
+  }
+
+  // range "X-end" atau "X-Y"
+  const rangeMatch = mode.match(/^(\d+)-(end|\d+)$/);
+  if (rangeMatch) {
+    const start = parseInt(rangeMatch[1], 10) - 1;
+    const end = rangeMatch[2] === "end" ? accounts.length : parseInt(rangeMatch[2], 10);
+    if (start < 0 || start >= accounts.length) {
+      throw new Error(`Start index ${rangeMatch[1]} di luar jangkauan.`);
+    }
+    return accounts.slice(start, end);
+  }
+
+  throw new Error(
+    `Argumen "${arg}" gak dikenali. Pakai: all | <nomor> | <nomor>-end | <nomor>-<nomor>`
+  );
+}
+
 async function submitOne(acc) {
   const payload = {
     submitted_at: new Date().toISOString(),
@@ -98,8 +137,19 @@ async function submitOne(acc) {
 }
 
 async function main() {
+  const arg = process.argv[2];
+  let selected;
+  try {
+    selected = selectAccounts(ACCOUNTS, arg);
+  } catch (err) {
+    console.error("Error:", err.message);
+    process.exit(1);
+  }
+
+  console.log(`Memproses ${selected.length} dari ${ACCOUNTS.length} akun (mode: ${arg || "all"})\n`);
+
   const results = [];
-  for (const acc of ACCOUNTS) {
+  for (const acc of selected) {
     const r = await submitOne(acc);
     results.push(r);
     // jeda dikit antar akun biar ga keliatan spam
