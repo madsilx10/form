@@ -42,9 +42,16 @@ function twHeaders(account) {
     "Authorization": "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LTa1ujbmxtKMCBYIyI8M7gILZneTMoJJgk",
     "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36",
     "Referer": "https://x.com/",
+    "Origin": "https://x.com",
     "X-Twitter-Auth-Type": "OAuth2Session",
     "X-Twitter-Client-Language": "en",
     "X-Twitter-Active-User": "yes",
+    "X-Twitter-Client-Version": "Twitter-TweetDeck-blackbird-chrome/4.0.220811153004 chrome/4.0.220811153004",
+    "Accept": "*/*",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Dest": "empty",
   };
 }
 
