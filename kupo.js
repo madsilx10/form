@@ -39,7 +39,7 @@ function twHeaders(account) {
   return {
     "Cookie": `auth_token=${account.auth_token}; ct0=${account.ct0}`,
     "X-Csrf-Token": account.ct0,
-    "Authorization": "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LTa1ujbmxtKMCBYIyI8M7gILZneTMoJJgk",
+    "Authorization": "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LTa1Uq16cHjhLTvJu4FA33AGWWjCpTnA",
     "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36",
     "Referer": "https://x.com/",
     "Origin": "https://x.com",
