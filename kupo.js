@@ -34,6 +34,13 @@ function prompt(question) {
   return new Promise(resolve => rl.question(question, ans => { rl.close(); resolve(ans.trim()); }));
 }
 
+// ─── Generate X-Client-Transaction-Id ──────────────────────────────
+function genTransactionId() {
+  const bytes = new Uint8Array(64);
+  for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+  return Buffer.from(bytes).toString("base64");
+}
+
 // ─── Twitter headers ───────────────────────────────────────────────
 function twHeaders(account) {
   return {
@@ -44,11 +51,11 @@ function twHeaders(account) {
     "Referer": "https://x.com/",
     "Origin": "https://x.com",
     "X-Twitter-Auth-Type": "OAuth2Session",
-    "X-Twitter-Client-Language": "en",
+    "X-Twitter-Client-Language": "id",
     "X-Twitter-Active-User": "yes",
-    "X-Twitter-Client-Version": "Twitter-TweetDeck-blackbird-chrome/4.0.220811153004 chrome/4.0.220811153004",
+    "X-Client-Transaction-Id": genTransactionId(),
     "Accept": "*/*",
-    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
     "Sec-Fetch-Site": "same-origin",
     "Sec-Fetch-Mode": "cors",
     "Sec-Fetch-Dest": "empty",
@@ -56,17 +63,33 @@ function twHeaders(account) {
 }
 
 // ─── Twitter actions ───────────────────────────────────────────────
+const KUPONFT_USER_ID = "2087488162171871232";
+
 async function twitterFollow(account) {
-  
   const followHeaders = { ...twHeaders(account), "Content-Type": "application/x-www-form-urlencoded" };
-  console.log(`    ↳ [DEBUG headers] cookie:${followHeaders.Cookie?.substring(0,40)}... csrf:${followHeaders['X-Csrf-Token']?.substring(0,10)}...`);
+  const body = new URLSearchParams({
+    include_profile_interstitial_type: "1",
+    include_blocking: "1",
+    include_blocked_by: "1",
+    include_followed_by: "1",
+    include_want_retweets: "1",
+    include_mute_edge: "1",
+    include_can_dm: "1",
+    include_can_media_tag: "1",
+    include_ext_is_blue_verified: "1",
+    include_ext_verified_type: "1",
+    include_ext_profile_image_shape: "1",
+    skip_status: "1",
+    user_id: KUPONFT_USER_ID,
+  }).toString();
+
   const res = await fetch("https://x.com/i/api/1.1/friendships/create.json", {
     method: "POST",
     headers: followHeaders,
-    body: `screen_name=KupoNFTs`,
+    body,
   });
   const text = await res.text();
-  console.log(`    ↳ [DEBUG follow] status:${res.status} body:${text}`);
+  console.log(`    ↳ [DEBUG follow] status:${res.status} body:${text.substring(0, 200)}`);
   const data = JSON.parse(text);
 
   if (data?.relationship?.source?.following === true) {
