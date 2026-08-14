@@ -84,21 +84,7 @@ const KUPONFT_USER_ID = "2087488162171871232";
 
 async function twitterFollow(account) {
   const followHeaders = { ...twHeaders(account), "Content-Type": "application/x-www-form-urlencoded" };
-  const body = new URLSearchParams({
-    include_profile_interstitial_type: "1",
-    include_blocking: "1",
-    include_blocked_by: "1",
-    include_followed_by: "1",
-    include_want_retweets: "1",
-    include_mute_edge: "1",
-    include_can_dm: "1",
-    include_can_media_tag: "1",
-    include_ext_is_blue_verified: "1",
-    include_ext_verified_type: "1",
-    include_ext_profile_image_shape: "1",
-    skip_status: "1",
-    user_id: KUPONFT_USER_ID,
-  }).toString();
+  const body = new URLSearchParams({ user_id: KUPONFT_USER_ID }).toString();
 
   const res = await fetch("https://x.com/i/api/1.1/friendships/create.json", {
     method: "POST",
@@ -122,7 +108,16 @@ async function twitterFollow(account) {
     throw new Error(`Follow gagal: response bukan JSON (status ${res.status}): ${text.substring(0, 200)}`);
   }
 
-  if (data?.relationship?.source?.following === true) {
+  if (data?.errors?.length) {
+    const err = data.errors[0];
+    if (err.code === 160) {
+      console.log(`    ↳ Sudah request follow (akun protected), skip.`);
+      return;
+    }
+    throw new Error(`Follow gagal: [${err.code}] ${err.message}`);
+  }
+
+  if (data?.following === true) {
     console.log(`    ↳ Sudah follow, skip.`);
     return;
   }
