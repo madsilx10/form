@@ -57,12 +57,12 @@ function twitterHeaders(account) {
 
 // ─── Twitter actions ───────────────────────────────────────────────
 async function twitterFollow(account) {
-  const lookupRes = await fetch("https://api.twitter.com/2/users/by/username/KupoNFTs", {
+  const lookupRes = await fetch("https://api.twitter.com/1.1/users/show.json?screen_name=KupoNFTs", {
     headers: twitterHeaders(account),
   });
   const lookupData = await lookupRes.json();
-  const targetId = lookupData?.data?.id;
-  if (!targetId) throw new Error("Gagal ambil user ID KupoNFTs");
+  const targetId = lookupData?.id_str;
+  if (!targetId) throw new Error(`Gagal ambil user ID KupoNFTs: ${JSON.stringify(lookupData)}`);
 
   const res = await fetch("https://api.twitter.com/1.1/friendships/create.json", {
     method: "POST",
@@ -208,7 +208,6 @@ async function main() {
   const total = accounts.length;
 
   console.log(`\n📋 Total akun: ${total}`);
-  accounts.forEach((a, i) => console.log(`  ${i + 1}. ${a.username} | ${a.wallet}`));
 
   console.log(`
 Pilih mode:
