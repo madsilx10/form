@@ -9,7 +9,6 @@ function loadAccounts() {
   const usernames = fs.readFileSync("usn1.txt", "utf8").trim().split("\n").map(s => s.trim()).filter(Boolean);
   const wallets   = fs.readFileSync("wallet.txt", "utf8").trim().split("\n").map(s => s.trim()).filter(Boolean);
 
-  // akun.txt: tiap akun = 2 baris (authtoken, ct0), dipisah baris kosong
   const akunRaw = fs.readFileSync("akun.txt", "utf8").trim().split(/\n\s*\n/);
   const akuns = akunRaw.map(block => {
     const lines = block.trim().split("\n").map(s => s.trim()).filter(Boolean);
@@ -29,26 +28,20 @@ function loadAccounts() {
   return accounts;
 }
 
-// ─── Prompt input ──────────────────────────────────────────────────
+// ─── Prompt ────────────────────────────────────────────────────────
 function prompt(question) {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   return new Promise(resolve => rl.question(question, ans => { rl.close(); resolve(ans.trim()); }));
 }
 
-// ─── Utils ─────────────────────────────────────────────────────────
-function randomDelay() {
-  const ms = (Math.floor(Math.random() * 21) + 10) * 1000; // 10–30 detik
-  return new Promise(r => setTimeout(r, ms));
-}
-
-function twitterHeaders(account) {
+// ─── Twitter headers ───────────────────────────────────────────────
+function twHeaders(account) {
   return {
-    "Content-Type": "application/json",
     "Cookie": `auth_token=${account.auth_token}; ct0=${account.ct0}`,
     "X-Csrf-Token": account.ct0,
     "Authorization": "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LTa1ujbmxtKMCBYIyI8M7gILZneTMoJJgk",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-    "Referer": "https://twitter.com/",
+    "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36",
+    "Referer": "https://x.com/",
     "X-Twitter-Auth-Type": "OAuth2Session",
     "X-Twitter-Client-Language": "en",
     "X-Twitter-Active-User": "yes",
@@ -57,8 +50,9 @@ function twitterHeaders(account) {
 
 // ─── Twitter actions ───────────────────────────────────────────────
 async function twitterFollow(account) {
+  // Lookup user ID pakai v1.1 (GET, tanpa Content-Type)
   const lookupRes = await fetch("https://api.twitter.com/1.1/users/show.json?screen_name=KupoNFTs", {
-    headers: twitterHeaders(account),
+    headers: twHeaders(account),
   });
   const lookupData = await lookupRes.json();
   const targetId = lookupData?.id_str;
@@ -66,38 +60,38 @@ async function twitterFollow(account) {
 
   const res = await fetch("https://api.twitter.com/1.1/friendships/create.json", {
     method: "POST",
-    headers: { ...twitterHeaders(account), "Content-Type": "application/x-www-form-urlencoded" },
+    headers: { ...twHeaders(account), "Content-Type": "application/x-www-form-urlencoded" },
     body: `user_id=${targetId}`,
   });
   const data = await res.json();
 
-  // Sudah follow sebelumnya → skip, lanjut verify
   if (data?.relationship?.source?.following === true) {
-    console.log(`    ↳ Sudah follow sebelumnya, skip.`);
+    console.log(`    ↳ Sudah follow, skip.`);
     return;
   }
-  if (!data?.id) throw new Error(`Follow gagal: ${JSON.stringify(data)}`);
+  if (!data?.id_str && !data?.id) throw new Error(`Follow gagal: ${JSON.stringify(data)}`);
 }
 
 async function getMyId(account) {
-  const res = await fetch("https://api.twitter.com/2/users/me", { headers: twitterHeaders(account) });
+  const res = await fetch("https://api.twitter.com/1.1/account/verify_credentials.json", {
+    headers: twHeaders(account),
+  });
   const data = await res.json();
-  const id = data?.data?.id;
-  if (!id) throw new Error("Gagal ambil own user ID");
+  const id = data?.id_str;
+  if (!id) throw new Error(`Gagal ambil own user ID: ${JSON.stringify(data)}`);
   return id;
 }
 
 async function twitterRT(account, myId) {
   const res = await fetch(`https://api.twitter.com/2/users/${myId}/retweets`, {
     method: "POST",
-    headers: twitterHeaders(account),
+    headers: { ...twHeaders(account), "Content-Type": "application/json" },
     body: JSON.stringify({ tweet_id: TWEET_ID }),
   });
   const data = await res.json();
 
-  // Sudah RT sebelumnya → Twitter return error 327
   if (data?.errors?.[0]?.code === 327 || data?.data?.retweeted === true) {
-    console.log(`    ↳ Sudah RT sebelumnya, skip.`);
+    console.log(`    ↳ Sudah RT, skip.`);
     return;
   }
   if (!data?.data?.retweeted) throw new Error(`RT gagal: ${JSON.stringify(data)}`);
@@ -106,20 +100,19 @@ async function twitterRT(account, myId) {
 async function twitterLike(account, myId) {
   const res = await fetch(`https://api.twitter.com/2/users/${myId}/likes`, {
     method: "POST",
-    headers: twitterHeaders(account),
+    headers: { ...twHeaders(account), "Content-Type": "application/json" },
     body: JSON.stringify({ tweet_id: TWEET_ID }),
   });
   const data = await res.json();
 
-  // Sudah like sebelumnya → Twitter return error 139
   if (data?.errors?.[0]?.code === 139 || data?.data?.liked === true) {
-    console.log(`    ↳ Sudah like sebelumnya, skip.`);
+    console.log(`    ↳ Sudah like, skip.`);
     return;
   }
   if (!data?.data?.liked) throw new Error(`Like gagal: ${JSON.stringify(data)}`);
 }
 
-// ─── Kupo actions ──────────────────────────────────────────────────
+// ─── Kupo headers & actions ────────────────────────────────────────
 function kupoHeaders() {
   return {
     "Content-Type": "application/json",
@@ -208,7 +201,6 @@ async function main() {
   const total = accounts.length;
 
   console.log(`\n📋 Total akun: ${total}`);
-
   console.log(`
 Pilih mode:
   1. Satu akun
@@ -222,14 +214,14 @@ Pilih mode:
   if (mode === "1") {
     const idx = await prompt(`Nomor akun (1-${total}): `);
     const i = parseInt(idx) - 1;
-    if (isNaN(i) || i < 0 || i >= total) return console.error("Nomor akun tidak valid.");
+    if (isNaN(i) || i < 0 || i >= total) return console.error("Nomor tidak valid.");
     selected = [accounts[i]];
 
   } else if (mode === "2") {
     selected = accounts;
 
   } else if (mode === "3") {
-    const from = await prompt(`Mulai dari akun nomor (1-${total}): `);
+    const from = await prompt(`Mulai dari nomor (1-${total}): `);
     const i = parseInt(from) - 1;
     if (isNaN(i) || i < 0 || i >= total) return console.error("Nomor tidak valid.");
     selected = accounts.slice(i);
