@@ -120,10 +120,24 @@ async function twitterLike(account, myId) {
 }
 
 // ─── Kupo actions ──────────────────────────────────────────────────
+function kupoHeaders() {
+  return {
+    "Content-Type": "application/json",
+    "Accept": "*/*",
+    "Accept-Language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Origin": "https://www.kupo.world",
+    "Referer": "https://www.kupo.world/",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-origin",
+    "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36",
+  };
+}
+
 async function kupoSubmitUsername(account) {
   const res = await fetch(`${BASE_URL}/submit`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: kupoHeaders(),
     body: JSON.stringify({ stage: "xUser", xUser: account.username }),
   });
   const data = await res.json();
@@ -133,7 +147,7 @@ async function kupoSubmitUsername(account) {
 async function kupoVerifyTask(account, task) {
   const res = await fetch(`${BASE_URL}/verify-task`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: kupoHeaders(),
     body: JSON.stringify({ task, xUser: account.username }),
   });
   const data = await res.json();
@@ -143,7 +157,7 @@ async function kupoVerifyTask(account, task) {
 async function kupoSubmitWallet(account) {
   const res = await fetch(`${BASE_URL}/submit`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: kupoHeaders(),
     body: JSON.stringify({ stage: "wallet", xUser: account.username, wallet: account.wallet }),
   });
   const data = await res.json();
