@@ -5,6 +5,12 @@ const TWEET_ID = "2087894490719940769";
 const BASE_URL = "https://www.kupo.world/api";
 
 // ─── Load akun dari file ───────────────────────────────────────────
+// ─── Sanitize token dari karakter tak-kasat-mata (zero-width, BOM) ──
+function sanitizeToken(s) {
+  if (!s) return s;
+  return s.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, "").trim();
+}
+
 function loadAccounts() {
   const usernames = fs.readFileSync("usn1.txt", "utf8").trim().split("\n").map(s => s.trim()).filter(Boolean);
   const wallets   = fs.readFileSync("wallet.txt", "utf8").trim().split("\n").map(s => s.trim()).filter(Boolean);
@@ -15,14 +21,22 @@ function loadAccounts() {
     return { auth_token: lines[0], ct0: lines[1] };
   });
 
+  console.log(`📊 usn1.txt: ${usernames.length} baris | wallet.txt: ${wallets.length} baris | akun.txt: ${akuns.length} blok`);
+  if (usernames.length !== wallets.length || usernames.length !== akuns.length) {
+    console.log(`⚠️  JUMLAH GAK SAMA! Ini kemungkinan besar penyebab token ke-pasang ke akun yang salah.`);
+  }
+
   const len = Math.min(usernames.length, wallets.length, akuns.length);
   const accounts = [];
   for (let i = 0; i < len; i++) {
+    const at = sanitizeToken(akuns[i].auth_token || "");
+    const ct = sanitizeToken(akuns[i].ct0 || "");
+    console.log(`  [${i + 1}] ${usernames[i]} → auth_token:${at.slice(0,6)}...${at.slice(-4)} (len:${at.length}) | ct0:${ct.slice(0,6)}...${ct.slice(-4)} (len:${ct.length})`);
     accounts.push({
       username:   usernames[i],
       wallet:     wallets[i],
-      auth_token: akuns[i].auth_token,
-      ct0:        akuns[i].ct0,
+      auth_token: at,
+      ct0:        ct,
     });
   }
   return accounts;
