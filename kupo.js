@@ -56,7 +56,9 @@ async function twitterFollow(account) {
     headers: { ...twHeaders(account), "Content-Type": "application/x-www-form-urlencoded" },
     body: `screen_name=KupoNFTs`,
   });
-  const data = await res.json();
+  const text = await res.text();
+  console.log(`    ↳ [DEBUG follow] status:${res.status} body:${text}`);
+  const data = JSON.parse(text);
 
   if (data?.relationship?.source?.following === true) {
     console.log(`    ↳ Sudah follow, skip.`);
