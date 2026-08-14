@@ -51,9 +51,11 @@ function twHeaders(account) {
 // ─── Twitter actions ───────────────────────────────────────────────
 async function twitterFollow(account) {
   
+  const followHeaders = { ...twHeaders(account), "Content-Type": "application/x-www-form-urlencoded" };
+  console.log(`    ↳ [DEBUG headers] cookie:${followHeaders.Cookie?.substring(0,40)}... csrf:${followHeaders['X-Csrf-Token']?.substring(0,10)}...`);
   const res = await fetch("https://api.twitter.com/1.1/friendships/create.json", {
     method: "POST",
-    headers: { ...twHeaders(account), "Content-Type": "application/x-www-form-urlencoded" },
+    headers: followHeaders,
     body: `screen_name=KupoNFTs`,
   });
   const text = await res.text();
