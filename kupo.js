@@ -60,7 +60,7 @@ async function twitterFollow(account) {
   
   const followHeaders = { ...twHeaders(account), "Content-Type": "application/x-www-form-urlencoded" };
   console.log(`    ↳ [DEBUG headers] cookie:${followHeaders.Cookie?.substring(0,40)}... csrf:${followHeaders['X-Csrf-Token']?.substring(0,10)}...`);
-  const res = await fetch("https://api.twitter.com/1.1/friendships/create.json", {
+  const res = await fetch("https://x.com/i/api/1.1/friendships/create.json", {
     method: "POST",
     headers: followHeaders,
     body: `screen_name=KupoNFTs`,
@@ -77,7 +77,7 @@ async function twitterFollow(account) {
 }
 
 async function getMyId(account) {
-  const res = await fetch("https://api.twitter.com/1.1/account/verify_credentials.json", {
+  const res = await fetch("https://x.com/i/api/1.1/account/verify_credentials.json", {
     headers: twHeaders(account),
   });
   const data = await res.json();
@@ -87,7 +87,7 @@ async function getMyId(account) {
 }
 
 async function twitterRT(account, myId) {
-  const res = await fetch(`https://api.twitter.com/2/users/${myId}/retweets`, {
+  const res = await fetch(`https://x.com/i/api/2/users/${myId}/retweets`, {
     method: "POST",
     headers: { ...twHeaders(account), "Content-Type": "application/json" },
     body: JSON.stringify({ tweet_id: TWEET_ID }),
@@ -102,7 +102,7 @@ async function twitterRT(account, myId) {
 }
 
 async function twitterLike(account, myId) {
-  const res = await fetch(`https://api.twitter.com/2/users/${myId}/likes`, {
+  const res = await fetch(`https://x.com/i/api/2/users/${myId}/likes`, {
     method: "POST",
     headers: { ...twHeaders(account), "Content-Type": "application/json" },
     body: JSON.stringify({ tweet_id: TWEET_ID }),
