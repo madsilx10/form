@@ -54,7 +54,9 @@ async function twitterFollow(account) {
   const lookupRes = await fetch("https://api.twitter.com/1.1/users/show.json?screen_name=KupoNFTs", {
     headers: twHeaders(account),
   });
-  const lookupData = await lookupRes.json();
+  const rawText = await lookupRes.text();
+  console.log(`    ↳ [DEBUG] status: ${lookupRes.status}, body: ${rawText}`);
+  const lookupData = JSON.parse(rawText);
   const targetId = lookupData?.id_str;
   if (!targetId) throw new Error(`Gagal ambil user ID KupoNFTs: ${JSON.stringify(lookupData)}`);
 
