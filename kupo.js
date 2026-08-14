@@ -90,7 +90,20 @@ async function twitterFollow(account) {
   });
   const text = await res.text();
   console.log(`    ↳ [DEBUG follow] status:${res.status} body:${text.substring(0, 200)}`);
-  const data = JSON.parse(text);
+
+  if (res.status === 401) {
+    throw new Error(`Follow gagal: 401 Unauthorized — auth_token/ct0 akun ini kemungkinan invalid/expired/logout. Cek ulang cookie-nya.`);
+  }
+  if (res.status === 403) {
+    throw new Error(`Follow gagal: 403 Forbidden — akun mungkin ke-lock/suspend atau kena bot-detection.`);
+  }
+
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(`Follow gagal: response bukan JSON (status ${res.status}): ${text.substring(0, 200)}`);
+  }
 
   if (data?.relationship?.source?.following === true) {
     console.log(`    ↳ Sudah follow, skip.`);
@@ -103,6 +116,9 @@ async function getMyId(account) {
   const res = await fetch("https://x.com/i/api/1.1/account/verify_credentials.json", {
     headers: twHeaders(account),
   });
+  if (res.status === 401) {
+    throw new Error(`Token invalid/expired (401 di verify_credentials) — auth_token/ct0 akun ini sudah mati, ganti cookie-nya.`);
+  }
   const data = await res.json();
   const id = data?.id_str;
   if (!id) throw new Error(`Gagal ambil own user ID: ${JSON.stringify(data)}`);
@@ -190,6 +206,9 @@ async function processAccount(account, index, total) {
   try {
     console.log(`\n${tag} ── Mulai`);
 
+    console.log(`${tag} Cek token...`);
+    const myId = await getMyId(account);
+
     console.log(`${tag} Submit username...`);
     await kupoSubmitUsername(account);
 
@@ -198,8 +217,6 @@ async function processAccount(account, index, total) {
 
     console.log(`${tag} Verify follow...`);
     await kupoVerifyTask(account, "follow");
-
-    const myId = await getMyId(account);
 
     console.log(`${tag} Retweet...`);
     await twitterRT(account, myId);
