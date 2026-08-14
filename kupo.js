@@ -50,14 +50,14 @@ function twHeaders(account) {
 
 // ─── Twitter actions ───────────────────────────────────────────────
 async function twitterFollow(account) {
-  // Lookup user ID pakai v1.1 (GET, tanpa Content-Type)
-  const lookupRes = await fetch("https://api.twitter.com/1.1/users/show.json?screen_name=KupoNFTs", {
+  
+  const variables = encodeURIComponent(JSON.stringify({ screen_name: "KupoNFTs", withSafetyModeUserFields: true }));
+  const features = encodeURIComponent(JSON.stringify({ hidden_profile_likes_enabled: true, hidden_profile_subscriptions_enabled: true, responsive_web_graphql_exclude_directive_enabled: true, verified_phone_label_enabled: false, highlights_tweets_tab_ui_enabled: true, responsive_web_graphql_timeline_navigation_enabled: true }));
+  const lookupRes = await fetch(`https://twitter.com/i/api/graphql/G3KGOASz96M-Qu0nwmGXNg/UserByScreenName?variables=${variables}&features=${features}`, {
     headers: twHeaders(account),
   });
-  const rawText = await lookupRes.text();
-  console.log(`    ↳ [DEBUG] status: ${lookupRes.status}, body: ${rawText}`);
-  const lookupData = JSON.parse(rawText);
-  const targetId = lookupData?.id_str;
+  const lookupData = await lookupRes.json();
+  const targetId = lookupData?.data?.user?.result?.rest_id;
   if (!targetId) throw new Error(`Gagal ambil user ID KupoNFTs: ${JSON.stringify(lookupData)}`);
 
   const res = await fetch("https://api.twitter.com/1.1/friendships/create.json", {
