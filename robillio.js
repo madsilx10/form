@@ -137,7 +137,8 @@ async function main() {
         fail++;
       }
     } catch (err) {
-      console.log(`💥 ERROR | ${err.message}`);
+      const detail = err.response?.data ? JSON.stringify(err.response.data) : err.message;
+      console.log(`💥 ERROR | ${detail}`);
       fail++;
     }
 
