@@ -72,7 +72,7 @@ async function whitelist(wallet) {
   const proxyUrl = getNextProxy();
   const agent    = new HttpsProxyAgent(proxyUrl);
   const tag      = new URL(proxyUrl).host;
-  const res      = await axios.post(WHITELIST_URL, { wallet }, { httpsAgent: agent });
+  const res      = await axios.post(WHITELIST_URL, { wallet }, { httpsAgent: agent, proxy: false });
   return { proxyTag: tag, ...res.data };
 }
 
