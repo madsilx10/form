@@ -1,6 +1,6 @@
-const fs       = require("fs");
+const fs      = require("fs");
 const readline = require("readline");
-const { ProxyAgent } = require("undici");
+const axios   = require("axios");
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const WHITELIST_URL = "https://robillio.xyz/api/whitelist";
@@ -53,11 +53,7 @@ const PROXIES = [
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function readLines(file) {
-  return fs
-    .readFileSync(file, "utf-8")
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean);
+  return fs.readFileSync(file, "utf-8").split("\n").map((l) => l.trim()).filter(Boolean);
 }
 
 function ask(rl, q) {
@@ -66,25 +62,21 @@ function ask(rl, q) {
 
 let proxyIndex = 0;
 function getNextProxy() {
-  const proxy = PROXIES[proxyIndex % PROXIES.length];
+  const url = new URL(PROXIES[proxyIndex % PROXIES.length]);
   proxyIndex++;
-  return proxy;
+  return {
+    host     : url.hostname,
+    port     : parseInt(url.port),
+    auth     : { username: url.username, password: url.password },
+    protocol : "http",
+    tag      : `${url.hostname}:${url.port}`,
+  };
 }
 
 async function whitelist(wallet) {
-  const proxyUrl    = getNextProxy();
-  const dispatcher  = new ProxyAgent(proxyUrl);
-  const proxyTag    = proxyUrl.split("@")[1];
-
-  const res = await fetch(WHITELIST_URL, {
-    method     : "POST",
-    headers    : { "Content-Type": "application/json" },
-    body       : JSON.stringify({ wallet }),
-    dispatcher,
-  });
-
-  const json = await res.json();
-  return { proxyTag, status: res.status, ...json };
+  const proxy = getNextProxy();
+  const res   = await axios.post(WHITELIST_URL, { wallet }, { proxy });
+  return { proxyTag: proxy.tag, ...res.data };
 }
 
 async function selectRange(rl, maxLen) {
