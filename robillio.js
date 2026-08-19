@@ -1,6 +1,6 @@
-const fs      = require("fs");
+const fs       = require("fs");
 const readline = require("readline");
-const axios   = require("axios");
+const axios    = require("axios");
 const { HttpsProxyAgent } = require("https-proxy-agent");
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
@@ -68,11 +68,21 @@ function getNextProxy() {
   return url;
 }
 
+async function checkIp(agent) {
+  const res = await axios.get("https://api.ipify.org?format=json", { httpsAgent: agent, proxy: false, timeout: 8000 });
+  return res.data.ip;
+}
+
 async function whitelist(wallet) {
   const proxyUrl = getNextProxy();
   const agent    = new HttpsProxyAgent(proxyUrl);
   const tag      = new URL(proxyUrl).host;
-  const res      = await axios.post(WHITELIST_URL, { wallet }, { httpsAgent: agent, proxy: false });
+
+  // Verifikasi IP yang dipakai
+  const ip = await checkIp(agent);
+  process.stdout.write(`[IP: ${ip}] `);
+
+  const res = await axios.post(WHITELIST_URL, { wallet }, { httpsAgent: agent, proxy: false });
   return { proxyTag: tag, ...res.data };
 }
 
