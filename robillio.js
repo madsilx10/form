@@ -1,6 +1,7 @@
 const fs      = require("fs");
 const readline = require("readline");
 const axios   = require("axios");
+const { HttpsProxyAgent } = require("https-proxy-agent");
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const WHITELIST_URL = "https://robillio.xyz/api/whitelist";
@@ -62,21 +63,17 @@ function ask(rl, q) {
 
 let proxyIndex = 0;
 function getNextProxy() {
-  const url = new URL(PROXIES[proxyIndex % PROXIES.length]);
+  const url = PROXIES[proxyIndex % PROXIES.length];
   proxyIndex++;
-  return {
-    host     : url.hostname,
-    port     : parseInt(url.port),
-    auth     : { username: url.username, password: url.password },
-    protocol : "http",
-    tag      : `${url.hostname}:${url.port}`,
-  };
+  return url;
 }
 
 async function whitelist(wallet) {
-  const proxy = getNextProxy();
-  const res   = await axios.post(WHITELIST_URL, { wallet }, { proxy });
-  return { proxyTag: proxy.tag, ...res.data };
+  const proxyUrl = getNextProxy();
+  const agent    = new HttpsProxyAgent(proxyUrl);
+  const tag      = new URL(proxyUrl).host;
+  const res      = await axios.post(WHITELIST_URL, { wallet }, { httpsAgent: agent });
+  return { proxyTag: tag, ...res.data };
 }
 
 async function selectRange(rl, maxLen) {
