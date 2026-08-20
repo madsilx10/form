@@ -75,7 +75,7 @@ function httpRequest(urlStr, options = {}, body = null, redirectCount = 0) {
         const loc = res.headers.location;
         const nextUrl = loc.startsWith('http') ? loc : `${parsed.protocol}//${parsed.host}${loc}`;
         const nextMethod = [307, 308].includes(res.statusCode) ? (options.method || 'GET') : 'GET';
-        httpRequest(nextUrl, { method: nextMethod, headers: {}, agent: options.agent }, nextMethod !== 'GET' ? body : null, redirectCount + 1)
+        httpRequest(nextUrl, { method: nextMethod, headers: options.headers || {}, agent: options.agent }, nextMethod !== 'GET' ? body : null, redirectCount + 1)
           .then(resolve).catch(reject);
         return;
       }
@@ -101,7 +101,7 @@ async function getIpInfo(agent) {
 }
 
 async function resolveUserId(handle, authtoken, ct0, agent) {
-  const res = await httpRequest(`https://twitter.com/i/api/1.1/users/show.json?screen_name=${handle}`, {
+  const res = await httpRequest(`https://x.com/i/api/1.1/users/show.json?screen_name=${handle}`, {
     agent,
     headers: {
       'Authorization': `Bearer ${BEARER}`,
@@ -110,7 +110,7 @@ async function resolveUserId(handle, authtoken, ct0, agent) {
       'x-twitter-auth-type': 'OAuth2Session',
       'x-twitter-active-user': 'yes',
       'x-twitter-client-language': 'en',
-      'Referer': 'https://twitter.com/',
+      'Referer': 'https://x.com/',
     },
   });
   const data = JSON.parse(res.body);
@@ -120,7 +120,7 @@ async function resolveUserId(handle, authtoken, ct0, agent) {
 
 async function twitterFollow(authtoken, ct0, userId, agent) {
   const body = new URLSearchParams({ user_id: userId, include_following_count: '1' }).toString();
-  return httpRequest('https://twitter.com/i/api/1.1/friendships/create.json', {
+  return httpRequest('https://x.com/i/api/1.1/friendships/create.json', {
     method: 'POST',
     agent,
     headers: {
@@ -131,7 +131,7 @@ async function twitterFollow(authtoken, ct0, userId, agent) {
       'x-twitter-auth-type': 'OAuth2Session',
       'x-twitter-active-user': 'yes',
       'x-twitter-client-language': 'en',
-      'Referer': 'https://twitter.com/',
+      'Referer': 'https://x.com/',
     },
   }, body);
 }
