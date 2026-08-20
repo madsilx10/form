@@ -113,8 +113,13 @@ async function resolveUserId(handle, authtoken, ct0, agent) {
       'Referer': 'https://x.com/',
     },
   });
-  const data = JSON.parse(res.body);
-  if (!data.id_str) throw new Error(`Gagal resolve ID: ${res.body.slice(0, 80)}`);
+  let data;
+  try {
+    data = JSON.parse(res.body);
+  } catch (e) {
+    throw new Error(`Gagal resolve ID (status ${res.status}, bukan JSON — kemungkinan diblok/challenge): ${res.body.slice(0, 150).replace(/\s+/g, ' ')}`);
+  }
+  if (!data.id_str) throw new Error(`Gagal resolve ID (status ${res.status}): ${res.body.slice(0, 150)}`);
   return data.id_str;
 }
 
@@ -217,7 +222,14 @@ async function main() {
     }
   }
   if (targetUserId === null) {
-    console.log(`[!] Semua akun gagal resolve ID target, follow bakal di-skip.\n`);
+    console.log(`[!] Semua akun gagal resolve ID target lewat proxy, coba sekali tanpa proxy...`);
+    try {
+      targetUserId = await resolveUserId(TARGET_HANDLE, accounts[start].authtoken, accounts[start].ct0, undefined);
+      console.log(`[*] Berhasil tanpa proxy → ID: ${targetUserId} (berarti proxy yang diblok X, bukan akun)\n`);
+    } catch (e) {
+      console.log(`[!] Tetap gagal tanpa proxy juga: ${e.message}`);
+      console.log(`[!] Follow bakal di-skip.\n`);
+    }
   }
 
   for (let i = start; i <= end; i++) {
