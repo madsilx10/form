@@ -101,7 +101,7 @@ async function getIpInfo(agent) {
 }
 
 async function resolveUserId(handle, authtoken, ct0, agent) {
-  const res = await httpRequest(`https://api.twitter.com/1.1/users/show.json?screen_name=${handle}`, {
+  const res = await httpRequest(`https://twitter.com/i/api/1.1/users/show.json?screen_name=${handle}`, {
     agent,
     headers: {
       'Authorization': `Bearer ${BEARER}`,
