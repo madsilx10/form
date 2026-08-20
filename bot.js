@@ -109,6 +109,8 @@ async function resolveUserId(handle, authtoken, ct0, agent) {
       'Cookie': `auth_token=${authtoken}; ct0=${ct0}`,
       'x-twitter-auth-type': 'OAuth2Session',
       'x-twitter-active-user': 'yes',
+      'x-twitter-client-language': 'en',
+      'Referer': 'https://twitter.com/',
     },
   });
   const data = JSON.parse(res.body);
@@ -203,13 +205,19 @@ async function main() {
   console.log(`\n[*] Akun yang diproses: ${rangeCount} (no. ${start + 1} - ${end + 1})`);
 
   // Resolve ID target sekali di awal (userId sama buat semua akun)
+  // Coba beberapa akun di range kalau token akun pertama expired/invalid
   let targetUserId = null;
-  try {
-    const firstAgent = proxies.length ? new HttpsProxyAgent(proxies[start % proxies.length].url) : undefined;
-    targetUserId = await resolveUserId(TARGET_HANDLE, accounts[start].authtoken, accounts[start].ct0, firstAgent);
-    console.log(`[*] Target @${TARGET_HANDLE} → ID: ${targetUserId}\n`);
-  } catch (e) {
-    console.log(`[!] Gagal resolve ID target, follow bakal di-skip: ${e.message}\n`);
+  for (let t = start; t <= end && targetUserId === null; t++) {
+    try {
+      const tryAgent = proxies.length ? new HttpsProxyAgent(proxies[t % proxies.length].url) : undefined;
+      targetUserId = await resolveUserId(TARGET_HANDLE, accounts[t].authtoken, accounts[t].ct0, tryAgent);
+      console.log(`[*] Target @${TARGET_HANDLE} → ID: ${targetUserId} (pakai akun #${t + 1})\n`);
+    } catch (e) {
+      console.log(`[!] Akun #${t + 1} gagal resolve target: ${e.message}`);
+    }
+  }
+  if (targetUserId === null) {
+    console.log(`[!] Semua akun gagal resolve ID target, follow bakal di-skip.\n`);
   }
 
   for (let i = start; i <= end; i++) {
