@@ -117,7 +117,13 @@ async function resolveUserId(handle, authtoken, ct0, agent) {
   try {
     data = JSON.parse(res.body);
   } catch (e) {
-    throw new Error(`Gagal resolve ID (status ${res.status}, bukan JSON — kemungkinan diblok/challenge): ${res.body.slice(0, 150).replace(/\s+/g, ' ')}`);
+    const dbgHeaders = JSON.stringify({
+      server: res.headers['server'],
+      'cf-ray': res.headers['cf-ray'],
+      location: res.headers['location'],
+      'content-type': res.headers['content-type'],
+    });
+    throw new Error(`Gagal resolve ID (status ${res.status}, bukan JSON)\n  headers: ${dbgHeaders}\n  body(400 char): ${res.body.slice(0, 400).replace(/\s+/g, ' ')}`);
   }
   if (!data.id_str) throw new Error(`Gagal resolve ID (status ${res.status}): ${res.body.slice(0, 150)}`);
   return data.id_str;
