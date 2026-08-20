@@ -168,46 +168,14 @@ async function main() {
   const rangeCount = end - start + 1;
   console.log(`\n[*] Akun yang diproses: ${rangeCount} (no. ${start + 1} - ${end + 1})`);
 
-  // Auto-resolve numeric ID dari handle target
-  process.stdout.write(`[*] Resolving @${TARGET_HANDLE}... `);
-  let TARGET_USER_ID;
-  try {
-    TARGET_USER_ID = await resolveUserId(TARGET_HANDLE, accounts[start].authtoken, accounts[start].ct0);
-    console.log(`ID: ${TARGET_USER_ID}`);
-  } catch (e) {
-    console.log(`GAGAL: ${e.message}`);
-    process.exit(1);
-  }
-
   const { ip, country } = await getIpInfo();
   console.log(`[*] IP: ${ip} | Country: ${country}\n`);
 
   for (let i = start; i <= end; i++) {
-    const { authtoken, ct0 } = accounts[i];
     const handle = usernames[i].startsWith('@') ? usernames[i] : `@${usernames[i]}`;
     const wallet = wallets[i];
 
     console.log(`[${i - start + 1}/${rangeCount}] #${i + 1} ${handle}`);
-
-    // === Twitter Follow ===
-    try {
-      const res = await twitterFollow(authtoken, ct0, TARGET_USER_ID);
-      let parsed = {};
-      try { parsed = JSON.parse(res.body); } catch {}
-
-      if (res.status === 200 && parsed.id) {
-        console.log(`  ✓ Follow sukses (@${parsed.screen_name})`);
-      } else if (parsed.errors?.length) {
-        const e = parsed.errors[0];
-        // 160 = already following, bukan error fatal
-        const label = e.code === 160 ? '~ Sudah follow' : `✗ Gagal [${e.code}]`;
-        console.log(`  ${label}: ${e.message}`);
-      } else {
-        console.log(`  ? Follow ${res.status}: ${res.body.slice(0, 80)}`);
-      }
-    } catch (e) {
-      console.log(`  ✗ Follow error: ${e.message}`);
-    }
 
     // === Submit GAS ===
     try {
