@@ -4,8 +4,8 @@ const readline = require('readline');
 const WHITELIST_URL = 'https://www.mudlarknft.com/api/whitelist';
 const TARGET_SCREEN_NAME = 'MUDLARK_nft';
 
-// bearer token publik yang dipakai web client X (bukan rahasia, dipakai luas di tools open source)
-const BEARER = 'AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTg%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA';
+// bearer web-client publik (dari referensi kupo-9-8.py, udah dicek bener)
+const BEARER = 'AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA';
 
 function loadAccounts(path) {
   const raw = fs.readFileSync(path, 'utf8').replace(/\r/g, '');
@@ -48,17 +48,66 @@ function loadAll() {
   return combined;
 }
 
+function xHeaders(acc, extra = {}) {
+  return {
+    'cookie': `auth_token=${acc.authToken}; ct0=${acc.ct0}`,
+    'x-csrf-token': acc.ct0,
+    'authorization': `Bearer ${BEARER}`,
+    'user-agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+    'accept': '*/*',
+    'accept-language': 'en-US,en;q=0.9',
+    'x-twitter-active-user': 'yes',
+    'x-twitter-auth-type': 'OAuth2Session',
+    'x-twitter-client-language': 'en',
+    'referer': `https://x.com/${TARGET_SCREEN_NAME}`,
+    'origin': 'https://x.com',
+    ...extra,
+  };
+}
+
+async function getTargetUserId(acc) {
+  const variables = JSON.stringify({ screen_name: TARGET_SCREEN_NAME, withGrokTranslatedBio: true });
+  const features = JSON.stringify({
+    hidden_profile_subscriptions_enabled: true,
+    profile_label_improvements_pcf_label_in_post_enabled: true,
+    responsive_web_profile_redirect_enabled: false,
+    rweb_tipjar_consumption_enabled: false,
+    verified_phone_label_enabled: false,
+    subscriptions_verification_info_is_identity_verified_enabled: true,
+    subscriptions_verification_info_verified_since_enabled: true,
+    highlights_tweets_tab_ui_enabled: true,
+    responsive_web_twitter_article_notes_tab_enabled: true,
+    subscriptions_feature_can_gift_premium: true,
+    creator_subscriptions_tweet_preview_api_enabled: true,
+    responsive_web_graphql_skip_user_profile_image_extensions_enabled: false,
+    responsive_web_graphql_timeline_navigation_enabled: true,
+  });
+  const fieldToggles = JSON.stringify({ withAuxiliaryUserLabels: true });
+  const params = new URLSearchParams({ variables, features, fieldToggles });
+  const url = `https://x.com/i/api/graphql/2qvSHpkWTMS9i0zJAwDNiA/UserByScreenName?${params}`;
+
+  const res = await fetch(url, { headers: xHeaders(acc) });
+  let data;
+  try { data = await res.json(); } catch { data = await res.text(); }
+
+  if (res.status === 401) throw new Error('Token invalid/expired (401) saat lookup target.');
+  const uid = data?.data?.user?.result?.rest_id;
+  if (!uid) throw new Error(`Gagal lookup @${TARGET_SCREEN_NAME}: ${JSON.stringify(data).slice(0, 200)}`);
+  return uid;
+}
+
 async function followTarget(acc) {
-  const url = `https://api.x.com/1.1/friendships/create.json?screen_name=${TARGET_SCREEN_NAME}`;
+  const targetId = await getTargetUserId(acc);
+  const url = `https://x.com/i/api/1.1/friendships/create.json?user_id=${targetId}`;
   const res = await fetch(url, {
     method: 'POST',
-    headers: {
-      'authorization': `Bearer ${BEARER}`,
-      'cookie': `auth_token=${acc.authToken}; ct0=${acc.ct0}`,
-      'x-csrf-token': acc.ct0,
-      'content-type': 'application/x-www-form-urlencoded',
-    },
+    headers: xHeaders(acc, { 'content-type': 'application/x-www-form-urlencoded' }),
   });
+
+  if (res.status === 403) {
+    // udah follow duluan
+    return { status: 200, data: { already: true } };
+  }
 
   let data;
   try { data = await res.json(); } catch { data = await res.text(); }
