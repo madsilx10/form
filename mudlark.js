@@ -192,7 +192,9 @@ async function main() {
 
   for (const acc of targets) {
     await processOne(acc);
-    await new Promise(r => setTimeout(r, 1200)); // delay lebih santai krn 2 request per akun
+    const delay = Math.floor(Math.random() * (30000 - 5000 + 1)) + 5000; // random 5-30 detik
+    console.log(`⏳ Delay ${(delay / 1000).toFixed(1)}s sebelum akun berikutnya...\n`);
+    await new Promise(r => setTimeout(r, delay));
   }
 
   console.log('\nSelesai.');
