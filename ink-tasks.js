@@ -7,7 +7,7 @@ const WHITELIST_URL = 'https://www.inkvikings.xyz/api/whitelist';
 
 const INKY_URL = 'https://hnvvyrbaohabwpiormfa.supabase.co/rest/v1/inky_task_submissions';
 // WAJIB DIISI: apikey/anon key supabase punya inky (liat di Network tab, header "apikey" atau "authorization")
-const INKY_SUPABASE_ANON_KEY = 'ISI_ANON_KEY_SUPABASE_DISINI';
+const INKY_SUPABASE_ANON_KEY = 'sb_publishable_CHqLLqjqntB_8e_j9Vtc6A_v4q3WVEI';
 const INKY_X_PROFILE = 'https://x.com/TheInkyLabs';
 const INKY_TASKS = ['follow-twitter', 'like-first-tweet', 'repost-first-tweet'];
 const INKY_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36';
@@ -100,6 +100,8 @@ async function inkyOne(acc) {
       'Content-Type': 'application/json',
       'apikey': INKY_SUPABASE_ANON_KEY,
       'authorization': `Bearer ${INKY_SUPABASE_ANON_KEY}`,
+      'content-profile': 'public',
+      'x-client-info': 'the-inky-labs-task-board',
       'prefer': 'return=minimal',
     },
     body: JSON.stringify(body),
