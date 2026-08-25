@@ -107,7 +107,9 @@ async function inkyOne(acc) {
     body: JSON.stringify(body),
   });
   const status = res.status;
-  return { status };
+  let text = '';
+  try { text = await res.text(); } catch {}
+  return { status, text };
 }
 
 async function processInky(acc) {
@@ -115,7 +117,7 @@ async function processInky(acc) {
   if (r.status === 201 || r.status === 200) {
     console.log(`✅ [${acc.index}] ${acc.handle} -> submitted`);
   } else {
-    console.log(`❌ [${acc.index}] ${acc.handle} -> gagal, status=${r.status}`);
+    console.log(`❌ [${acc.index}] ${acc.handle} -> gagal, status=${r.status}, body=${r.text || '(kosong)'}`);
   }
 }
 
