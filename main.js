@@ -29,7 +29,7 @@ async function robinWL() {
 
     const body = {
       x_username: username,
-      evm_wallet: wallet,
+      evm_wallet: wallet.toLowerCase(),
       followed: true,
       liked: true,
       commented: true,
