@@ -49,7 +49,9 @@ async function robinWL() {
         body: JSON.stringify(body),
       });
 
-      console.log(`[${i + 1}/${total}] @${username} | ${wallet.slice(0, 8)}... → ${res.status}`);
+      const text = await res.text();
+      const info = res.ok ? "" : ` | ${text}`;
+      console.log(`[${i + 1}/${total}] @${username} | ${wallet.slice(0, 8)}... → ${res.status}${info}`);
     } catch (err) {
       console.log(`[${i + 1}/${total}] @${username} ERROR: ${err.message}`);
     }
