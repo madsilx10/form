@@ -1,5 +1,6 @@
 const fs = require("fs");
 const https = require("https");
+const readline = require("readline");
 
 // ── CONFIG ──────────────────────────────────────────────────────────────────
 const KASHED_ACTION  = "600ed14788126523ff80d5117b010c1966c38b3c46";
@@ -10,9 +11,7 @@ const DELAY_MS       = 2000;
 const BEARER         = "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA";
 
 // ── HELPERS ─────────────────────────────────────────────────────────────────
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function readLines(file) {
   return fs.readFileSync(file, "utf8")
@@ -28,6 +27,11 @@ function readAkun(file) {
       accounts.push({ authToken: lines[i], ct0: lines[i + 1] });
   }
   return accounts;
+}
+
+function prompt(q) {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((r) => rl.question(q, (a) => { rl.close(); r(a.trim()); }));
 }
 
 function xHeaders(authToken, ct0, extra = {}) {
@@ -49,7 +53,11 @@ function rawRequest(opts, body = null) {
     const req = https.request(opts, (res) => {
       let data = "";
       res.on("data", (c) => (data += c));
-      res.on("end", () => resolve({ status: res.statusCode, body: data }));
+      res.on("end", () => {
+        let parsed;
+        try { parsed = JSON.parse(data); } catch { parsed = data; }
+        resolve({ status: res.statusCode, body: parsed, raw: data });
+      });
     });
     req.on("error", reject);
     if (body) req.write(body);
@@ -60,13 +68,12 @@ function rawRequest(opts, body = null) {
 function request(url, { method = "GET", headers = {}, body = null } = {}) {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
-    const opts = {
+    const req = https.request({
       hostname: u.hostname,
       path: u.pathname + u.search,
       method,
       headers,
-    };
-    const req = https.request(opts, (res) => {
+    }, (res) => {
       let data = "";
       res.on("data", (c) => (data += c));
       res.on("end", () => resolve({ status: res.statusCode, body: data, headers: res.headers }));
@@ -77,7 +84,7 @@ function request(url, { method = "GET", headers = {}, body = null } = {}) {
   });
 }
 
-// ── 1. KASHED REGISTER ───────────────────────────────────────────────────────
+// ── 1. KASHED ────────────────────────────────────────────────────────────────
 async function kashedRegister(username, wallet) {
   const payload = JSON.stringify([username, wallet]);
   const res = await request("https://www.kashed.fun/", {
@@ -95,10 +102,10 @@ async function kashedRegister(username, wallet) {
     body: payload,
   });
   const success = res.body.includes('"success":true');
-  return { status: res.status, success };
+  return { status: res.status, success, body: res.body };
 }
 
-// ── 2. SUPABASE SUBMIT ───────────────────────────────────────────────────────
+// ── 2. SUPABASE ───────────────────────────────────────────────────────────────
 async function supabaseSubmit(username, wallet) {
   const payload = JSON.stringify({
     x_handle: username,
@@ -121,10 +128,20 @@ async function supabaseSubmit(username, wallet) {
     },
     body: payload,
   });
-  return { status: res.status, success: res.status === 201 };
+  return { status: res.status, success: res.status === 201, body: res.body };
 }
 
-// ── 3. TWITTER FOLLOW ────────────────────────────────────────────────────────
+// ── 3. TWITTER ────────────────────────────────────────────────────────────────
+async function checkFollowing(authToken, ct0) {
+  const res = await rawRequest({
+    hostname: "api.x.com",
+    path: `/1.1/friendships/show.json?source_screen_name=me&target_screen_name=${FOLLOW_TARGET}`,
+    method: "GET",
+    headers: xHeaders(authToken, ct0),
+  });
+  return res.body?.relationship?.source?.following === true;
+}
+
 async function followUser(authToken, ct0) {
   const body = `screen_name=${FOLLOW_TARGET}&skip_status=true`;
   const res = await rawRequest({
@@ -139,6 +156,96 @@ async function followUser(authToken, ct0) {
   return { status: res.status, success: res.status === 200 };
 }
 
+// ── PROCESS ───────────────────────────────────────────────────────────────────
+async function runProjek1(targets, usernames, wallets) {
+  console.log(`\n${"═".repeat(50)}`);
+  console.log(`🟡 PROJEK 1 — kashed.fun (${targets.length} akun)`);
+  console.log(`${"═".repeat(50)}\n`);
+
+  let ok = 0, fail = 0;
+  for (let i = 0; i < targets.length; i++) {
+    const idx    = targets[i];
+    const usn    = usernames[idx];
+    const wallet = wallets[idx];
+    console.log(`[${i + 1}/${targets.length}] @${usn} | ${wallet.slice(0, 10)}...`);
+    try {
+      const k = await kashedRegister(usn, wallet);
+      if (k.success) {
+        console.log(`  kashed → ✅`);
+        ok++;
+      } else {
+        console.log(`  kashed → ⚠️  ${k.status} | ${k.body.slice(0, 120)}`);
+        fail++;
+      }
+    } catch (e) {
+      console.log(`  kashed → ❌ ${e.message}`);
+      fail++;
+    }
+    if (i < targets.length - 1) await sleep(DELAY_MS);
+  }
+  console.log(`\n✅ Kashed selesai: ${ok} ok | ${fail} gagal\n`);
+}
+
+async function runProjek2(targets, usernames, wallets, akuns) {
+  console.log(`${"═".repeat(50)}`);
+  console.log(`🔵 PROJEK 2 — Lost Beings: Supabase + Follow @${FOLLOW_TARGET} (${targets.length} akun)`);
+  console.log(`${"═".repeat(50)}\n`);
+
+  let s_ok = 0, s_fail = 0, f_ok = 0, f_fail = 0;
+  for (let i = 0; i < targets.length; i++) {
+    const idx    = targets[i];
+    const usn    = usernames[idx];
+    const wallet = wallets[idx];
+    const { authToken, ct0 } = akuns[idx];
+
+    console.log(`[${i + 1}/${targets.length}] @${usn} | ${wallet.slice(0, 10)}...`);
+
+    // Supabase
+    try {
+      const s = await supabaseSubmit(usn, wallet);
+      if (s.success) {
+        console.log(`  supabase → ✅`);
+        s_ok++;
+      } else {
+        console.log(`  supabase → ⚠️  ${s.status} | ${s.body.slice(0, 120)}`);
+        s_fail++;
+      }
+    } catch (e) {
+      console.log(`  supabase → ❌ ${e.message}`);
+      s_fail++;
+    }
+
+    // Cek dulu sebelum follow
+    try {
+      const sudahFollow = await checkFollowing(authToken, ct0);
+      if (sudahFollow) {
+        console.log(`  follow   → ⏭️  already following`);
+        f_ok++;
+      } else {
+        const f = await followUser(authToken, ct0);
+        if (f.success) {
+          console.log(`  follow   → ✅`);
+          f_ok++;
+        } else {
+          console.log(`  follow   → ⚠️  status ${f.status}`);
+          f_fail++;
+        }
+      }
+    } catch (e) {
+      console.log(`  follow   → ❌ ${e.message}`);
+      f_fail++;
+    }
+
+    if (i < targets.length - 1) await sleep(DELAY_MS);
+    console.log();
+  }
+
+  console.log(`${"═".repeat(50)}`);
+  console.log(`🏁 SUMMARY`);
+  console.log(`  Supabase : ✅ ${s_ok} | ⚠️  ${s_fail}`);
+  console.log(`  Follow   : ✅ ${f_ok} | ⚠️  ${f_fail}`);
+}
+
 // ── MAIN ─────────────────────────────────────────────────────────────────────
 async function main() {
   if (!fs.existsSync("usn1.txt") || !fs.existsSync("wallet.txt") || !fs.existsSync("akun.txt")) {
@@ -149,61 +256,47 @@ async function main() {
   const usernames = readLines("usn1.txt");
   const wallets   = readLines("wallet.txt");
   const akuns     = readAkun("akun.txt");
+  const total     = Math.min(usernames.length, wallets.length, akuns.length);
 
-  const total = Math.min(usernames.length, wallets.length, akuns.length);
   if (total === 0) {
     console.error("❌ Data kosong atau jumlah baris gak match");
     process.exit(1);
   }
 
-  console.log(`\n🚀 Kashed.fun + Lost Beings + Follow @${FOLLOW_TARGET}`);
-  console.log(`📋 Total akun: ${total}\n`);
+  console.log(`\n${"═".repeat(50)}`);
+  console.log(`  KASHED + LOST BEINGS FARMER`);
+  console.log(`${"═".repeat(50)}`);
+  console.log(`  Total pair: ${total}`);
+  console.log(`${"═".repeat(50)}\n`);
 
-  let ok = 0, fail = 0;
+  console.log("Mode:");
+  console.log("  1. 1 akun");
+  console.log("  2. Semua");
+  console.log("  3. From X to end\n");
 
-  for (let i = 0; i < total; i++) {
-    const usn    = usernames[i];
-    const wallet = wallets[i];
-    const { authToken, ct0 } = akuns[i];
+  const mode = await prompt("Pilihan (1/2/3): ");
+  let targets = [];
 
-    console.log(`[${i + 1}/${total}] @${usn} | ${wallet.slice(0, 10)}...`);
-
-    // Step 1: Kashed register
-    try {
-      const k = await kashedRegister(usn, wallet);
-      console.log(`  kashed  → ${k.success ? "✅" : "⚠️  status " + k.status}`);
-    } catch (e) {
-      console.log(`  kashed  → ❌ ${e.message}`);
+  if (mode === "1") {
+    const idx = parseInt(await prompt(`Index akun (1-${total}): `)) - 1;
+    if (isNaN(idx) || idx < 0 || idx >= total) {
+      console.error("❌ Index invalid"); process.exit(1);
     }
-
-    // Step 2: Supabase submit
-    try {
-      const s = await supabaseSubmit(usn, wallet);
-      console.log(`  supabase→ ${s.success ? "✅" : "⚠️  status " + s.status}`);
-    } catch (e) {
-      console.log(`  supabase→ ❌ ${e.message}`);
+    targets = [idx];
+  } else if (mode === "2") {
+    targets = Array.from({ length: total }, (_, i) => i);
+  } else if (mode === "3") {
+    const from = parseInt(await prompt(`Dari index (1-${total}): `)) - 1;
+    if (isNaN(from) || from < 0 || from >= total) {
+      console.error("❌ Index invalid"); process.exit(1);
     }
-
-    // Step 3: Follow
-    try {
-      const f = await followUser(authToken, ct0);
-      if (f.success) {
-        console.log(`  follow  → ✅`);
-        ok++;
-      } else {
-        console.log(`  follow  → ⚠️  status ${f.status}`);
-        fail++;
-      }
-    } catch (e) {
-      console.log(`  follow  → ❌ ${e.message}`);
-      fail++;
-    }
-
-    if (i < total - 1) await sleep(DELAY_MS);
-    console.log();
+    targets = Array.from({ length: total - from }, (_, i) => i + from);
+  } else {
+    console.error("❌ Pilihan invalid"); process.exit(1);
   }
 
-  console.log(`\n🏁 Selesai! Follow: ✅ ${ok} | ⚠️ ${fail}`);
+  await runProjek1(targets, usernames, wallets);
+  await runProjek2(targets, usernames, wallets, akuns);
 }
 
 main().catch(console.error);
