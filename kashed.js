@@ -20,12 +20,10 @@ function readLines(file) {
 
 function readAkun(file) {
   const lines = fs.readFileSync(file, "utf8")
-    .split("\n").map((l) => l.trim());
+    .split("\n").map((l) => l.trim()).filter(Boolean);
   const accounts = [];
-  for (let i = 0; i + 1 < lines.length; i += 2) {
-    if (lines[i] && lines[i + 1])
-      accounts.push({ authToken: lines[i], ct0: lines[i + 1] });
-  }
+  for (let i = 0; i + 1 < lines.length; i += 2)
+    accounts.push({ authToken: lines[i], ct0: lines[i + 1] });
   return accounts;
 }
 
