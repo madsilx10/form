@@ -110,8 +110,27 @@ async function supabaseSubmit(username, wallet) {
 
 // ── 3. TWITTER FOLLOW ────────────────────────────────────────────────────────
 async function getTwitterUserId(username, authToken, ct0) {
+  const vars = encodeURIComponent(JSON.stringify({
+    screen_name: username,
+    withSafetyModeUserFields: true,
+  }));
+  const features = encodeURIComponent(JSON.stringify({
+    hidden_profile_likes_enabled: true,
+    hidden_profile_subscriptions_enabled: true,
+    rweb_tipjar_consumption_enabled: true,
+    responsive_web_graphql_exclude_directive_enabled: true,
+    verified_phone_label_enabled: false,
+    subscriptions_verification_info_is_identity_verified_enabled: true,
+    subscriptions_verification_info_verified_since_enabled: true,
+    highlights_tweets_tab_ui_enabled: true,
+    responsive_web_twitter_article_notes_tab_enabled: true,
+    creator_subscriptions_tweet_preview_api_enabled: true,
+    responsive_web_graphql_skip_user_profile_image_extensions_enabled: false,
+    responsive_web_graphql_timeline_navigation_enabled: true,
+  }));
+
   const res = await request(
-    `https://api.twitter.com/1.1/users/show.json?screen_name=${username}`,
+    `https://twitter.com/i/api/graphql/NimuplG1OB7Fd2btCLdBOw/UserByScreenName?variables=${vars}&features=${features}`,
     {
       headers: {
         Cookie: `auth_token=${authToken}; ct0=${ct0}`,
@@ -120,12 +139,21 @@ async function getTwitterUserId(username, authToken, ct0) {
           "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I7wlcjwAAAAJ",
         "User-Agent":
           "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/126 Safari/537.36",
+        "X-Twitter-Active-User": "yes",
+        "X-Twitter-Auth-Type": "OAuth2Session",
+        "X-Twitter-Client-Language": "en",
+        Referer: `https://twitter.com/${username}`,
       },
     }
   );
-  if (res.status !== 200) return null;
+
+  if (res.status !== 200) {
+    console.log(`  [debug] graphql status: ${res.status}`);
+    return null;
+  }
   try {
-    return JSON.parse(res.body).id_str;
+    const json = JSON.parse(res.body);
+    return json?.data?.user?.result?.rest_id ?? null;
   } catch {
     return null;
   }
